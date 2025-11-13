@@ -1,0 +1,62 @@
+name: API Tests and Publish Allure Report
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  run-tests:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install allure-pytest python-dotenv
+
+      - name: Load environment variables
+        run: |
+          echo "Loading environment variables from .env"
+          set -o allexport
+          source .env
+          set +o allexport
+        shell: bash
+
+      - name: Run API tests
+        run: |
+          python run_tests.py
+        env:
+          BASE_URL: ${{ secrets.BASE_URL }}
+
+      - name: Install Allure CLI
+        run: |
+          sudo apt-add-repository ppa:qameta/allure -y
+          sudo apt-get update
+          sudo apt-get install allure -y
+
+      - name: Generate Allure report
+        run: |
+          allure generate allure-results --clean -o allure-report
+
+      - name: Deploy Allure report to GitHub Pages
+        uses: peaceiris/actions-gh-pages@v6
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./allure-report
+          publish_branch: gh-pages
+          user_name: github-actions
+          user_email: github-actions@github.com
+          keep_files: false
